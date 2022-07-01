@@ -2,86 +2,31 @@ import os
 import logging
 import requests
 import pandas as pd
+import sys
+import pyarrow.csv as pv
+import pyarrow.parquet as pq
+
+sys.path.insert(0, '/opt/airflow/helpers')
 
 from airflow import DAG
-from airflow.utils.dates import days_ago
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 
-import pyarrow.csv as pv
-import pyarrow.parquet as pq
 from datetime import datetime
+from extract_chotot_data import get_area, get_region, get_post_region
+from upload_to_s3 import upload_file_s3
 
 
-dataset_file = "yellow_tripdata_2021-01.csv"
-dataset_url = f"https://s3.amazonaws.com/nyc-tlc/trip+data/{dataset_file}"
 path_to_local_home = os.environ.get("AIRFLOW_HOME", "/opt/airflow/")
-parquet_file = dataset_file.replace('.csv', '.parquet')
-
-def get_area(path):
-    id, region_id, name, url_name, lat, longt = [],[],[],[],[],[]
-    url  = 'https://gateway.chotot.com/v1/public/web-proxy-api/loadRegions'
-    response = requests.get(url)
-    r_json = response.json()
-    regions = r_json['regionFollowId']['entities']['regions']
-    for region_idx in regions.keys():
-        region = regions[region_idx]
-        area = region['area']
-        for area_id, area_value in area.items():
-            id.append(area_id)
-            region_id.append(region_idx)
-            name.append(area_value['name'])
-            url_name.append(area_value['name_url'])
-            if len(area_value['geo'].split(',')) == 2:
-                lat.append(area_value['geo'].split(',')[0])
-                longt.append(area_value['geo'].split(',')[1])
-            else:
-                lat.append('N/A')
-                longt.append('N/A')
-        
-    result = pd.DataFrame({
-        'id' : id,
-        'region_id' : region_id,
-        'name' : name,
-        'url_name' : url_name,
-        'lat' : lat,
-        'long' : longt
-    })
-    result.to_csv(path)
-    print(f'save file to {path}')
-    # return result
 
 
-def get_region(path):
-    id, name, url_name, lat, longt = [],[],[],[],[]
-    url  = 'https://gateway.chotot.com/v1/public/web-proxy-api/loadRegions'
-    response = requests.get(url)
-    r_json = response.json()
-    regions = r_json['regionFollowId']['entities']['regions']
-    for region_id in regions.keys():
-        region = regions[region_id]
-        id.append(region['id'])
-        name.append(region['name'])
-        url_name.append(region['name_url'])
-        lat.append(region['geo'].split(',')[0])
-        longt.append(region['geo'].split(',')[1])
 
-    result = pd.DataFrame({
-        'id' : id,
-        'name' : name,
-        'url_name' : url_name,
-        'lat' : lat,
-        'long' : longt
-    })
-    result.to_csv(path)
-    print('Save region to {path}')
-
-def format_to_parquet(src_file):
-    if not src_file.endswith('.csv'):
-        logging.error("Can only accept source files in CSV format, for the moment")
-        return
-    table = pv.read_csv(src_file)
-    pq.write_table(table, src_file.replace('.csv', '.parquet'))
+# def format_to_parquet(src_file):
+#     if not src_file.endswith('.csv'):
+#         logging.error("Can only accept source files in CSV format, for the moment")
+#         return
+#     table = pv.read_csv(src_file)
+#     pq.write_table(table, src_file.replace('.csv', '.parquet'))
 
 # default_args = {
 #     "owner": "airflow",
@@ -129,50 +74,67 @@ def format_to_parquet(src_file):
 #     )
 default_args = {
     "owner": "airflow",
-    "start_date": days_ago(10),
-    "depends_on_past": False,
+    "start_date": datetime(2022,6,23),
+    # "depends_on_past": False,
     "retries": 1,
 }
-def test_df(arr):
-    print(pd.Series(arr))
-def test_dt(date):
-    print(date > datetime(2021, 6, 29, 13, 33, 44) )
+# def test_df(arr):
+#     print(pd.Series(arr))
+# from datetime import date,timedelta
+# def test_dt(date, **kwargs):
+#     today = datetime.strptime(date, '%Y-%m-%dT%H:%M:%S%z')
+#     yesterday = today - timedelta(1)
+#     print(f'Today is: {date}, yes: {yesterday}')
+#     print(kwargs['ds'])
+#     print(kwargs['prev_ds'])
 
-# NOTE: DAG declaration - using a Context Manager (an implicit way)
+
+
 with DAG(
-    dag_id="data_ingestion_gcs_dag",
+    dag_id="dag_daily",
     schedule_interval="@daily",
-    default_args=default_args,
-    catchup=False,
-    max_active_runs=1,
-    tags=['dtc-de'],
+    # default_args=default_args,
+    start_date= datetime(2022,6,20),
+    # max_active_runs=1,
+    tags=['real_estae_pipeline'],
 ) as dag:
 
-    download_dataset_task = BashOperator(
-        task_id="wget",
-        bash_command=f"echo hello"
+    get_area_task = PythonOperator(
+        task_id="get_area_task",
+        python_callable = get_area,
+        op_kwargs = {
+            "path" : f"{path_to_local_home}/data/area.parquet"
+        }
     )
 
-    format_to_parquet_task = PythonOperator(
-        task_id="format_to_parquet_task",
-        python_callable=test_df,
-        op_kwargs={
-            "arr":[1,2,3,4],
+    get_region_task = PythonOperator(
+        task_id="get_region_task",
+        python_callable=get_region,
+        op_kwargs = {
+            "path" : f"{path_to_local_home}/data/region.parquet"
         },
-    
         
 
-    ),
-    get_area_task = PythonOperator(
-        task_id = "get_area_task",
-        python_callable= get_area,
-        op_kwargs = {
-            "path": f"{path_to_local_home}/area.csv"
-        }
+    )
+
+    get_post_task = PythonOperator(
+        task_id= 'get_post_task',
+        python_callable= get_post_region,
+        op_kwargs= {
+            'region':'9053'
+        }, 
+        provide_context = True
     )
     list_all_file = BashOperator(
         task_id="list_all_file",
         bash_command=f"ls {path_to_local_home}"
+    )
+
+    upload_to_s3 = PythonOperator(
+        task_id= 'upload_to_s3',
+        python_callable= upload_file_s3, 
+        provide_context = True
+
     )
 
 # get_area_task >> get_region >> format_to_parquet_task
@@ -181,5 +143,5 @@ with DAG(
 
 
 
-download_dataset_task  >> format_to_parquet_task >> get_area_task >> list_all_file
+get_area_task  >> get_region_task >> get_post_task >> list_all_file >> upload_to_s3
 

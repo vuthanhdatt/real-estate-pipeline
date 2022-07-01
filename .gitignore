@@ -1,2 +1,6 @@
 .env
 airflow/logs
+__pycache__/
+**/.terraform/*
+*.tfstate
+*.tfstate.*

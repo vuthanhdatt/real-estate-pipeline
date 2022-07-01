@@ -19,7 +19,15 @@ resource "aws_s3_bucket" "b" {
   force_destroy = true 
 }
 
-resource "aws_s3_bucket_acl" "example" {
+#access_control_policy
+resource "aws_s3_bucket_acl" "access" {
   bucket = aws_s3_bucket.b.id
   acl    = "private"
+}
+
+resource "aws_s3_bucket_versioning" "versioning" {
+  bucket = aws_s3_bucket.b.id
+  versioning_configuration {
+    status = "Enabled"
+  }
 }
