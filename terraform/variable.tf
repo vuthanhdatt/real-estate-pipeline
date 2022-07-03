@@ -3,3 +3,15 @@ variable "s3_bucket" {
   type        = string
   default     = ""
 }
+
+variable "db_password" {
+  description = "Password for Redshift DB"
+  type        = string
+  default     = ""
+}
+
+variable "db_username" {
+  description = "Username for Redshift DB"
+  type        = string
+  default     = ""
+}

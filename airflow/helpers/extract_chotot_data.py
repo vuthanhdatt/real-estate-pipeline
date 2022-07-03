@@ -33,10 +33,10 @@ def get_area(path):
         'lat' : lat,
         'long' : long
     })
-    result.to_csv(path)
+    result.to_parquet(path, index=False)
     # return result
 
-def get_region(path):
+def get_region(path, save=True):
     id, name, url_name, lat, long = [],[],[],[],[]
     url  = 'https://gateway.chotot.com/v1/public/web-proxy-api/loadRegions'
     response = requests.get(url)
@@ -57,7 +57,10 @@ def get_region(path):
         'lat' : lat,
         'long' : long
     })
-    result.to_parquet(path)
+    if save:
+        result.to_parquet(path, index=False)
+    else:
+        return result
     
     # return result
 
@@ -73,7 +76,7 @@ def get_category(path):
         'id' : id,
         'name' : name,
     })
-    result.to_parquet(path)
+    result.to_parquet(path, index=False)
 
 # def get_post(posts):
 #     account_id = []
@@ -158,17 +161,17 @@ def get_category(path):
 #             print(f'Load {start}')
 #   return result
 
-def get_post_region(region, **kwargs):
+def get_all_posts(**kwargs):
     start = 0
     start_date = datetime.strptime(kwargs['prev_ds'], '%Y-%m-%d')
     end_date = datetime.strptime(kwargs['ds'], '%Y-%m-%d')
     path = f"/opt/airflow/data/cho-tot-{kwargs['prev_ds']}.parquet"
-    result = pd.DataFrame()  
-    while start < 10000:
-        url = f'https://gateway.chotot.com/v1/public/ad-listing?region_v2={region}&cg=1000&o={str(start)}&st=s,k&limit=100&key_param_included=true'
+    result = pd.DataFrame() 
+    total = requests.get('https://gateway.chotot.com/v1/public/ad-listing?cg=1000&st=s,k&limit=20&key_param_included=true').json()['total']
+    while start < total:
+        url = f'https://gateway.chotot.com/v1/public/ad-listing?cg=1000&o={str(start)}&st=s,k&limit=100&key_param_included=true'
         r = requests.get(url)
         r_json = r.json()
-        lastest_unix_time = datetime.utcfromtimestamp(r_json['ads'][-1]['list_time']/ 1000)
         ealiest_unix_time = datetime.utcfromtimestamp(r_json['ads'][0]['list_time']/ 1000)
         if ealiest_unix_time < start_date:
             break
@@ -184,10 +187,8 @@ def get_post_region(region, **kwargs):
     result['list_time'] = pd.to_datetime(result['list_time']/1000,unit='s')
     
     result = result[result['list_time'].between(start_date, end_date)]
-    result.to_parquet(path,use_deprecated_int96_timestamps=True)
+    result.to_parquet(path,use_deprecated_int96_timestamps=True, index=False)
     # result.to_csv(path)
-
-
 
 
 def save_to_csv(df, path):
