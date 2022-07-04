@@ -55,4 +55,4 @@ if __name__ == '__main__':
     copy_s3_to_redshift('region.parquet', engine, 'region')
     copy_s3_to_redshift('area.parquet', engine, 'area')
     copy_s3_to_redshift('category.parquet', engine, 'category')
-    insert_s3_to_redshift(f'cho-tot-{sys.argv[1]}.parquet', engine, 'posts')
+    insert_s3_to_redshift(f'cho-tot-{sys.argv[1]}.parquet', engine, 'all_posts')
