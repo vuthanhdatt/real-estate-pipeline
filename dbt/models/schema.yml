@@ -3,10 +3,4 @@ version: 2
 models:
   - name: transform_table
     description: Transformed data to visualize
-    columns:
-      - name: account_id
-        description: Id for each account 
-        tests:
-          -  not_null
-      - name: price_m2
-        description: price/size of the land/house
+    
