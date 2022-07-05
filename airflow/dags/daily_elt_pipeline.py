@@ -1,10 +1,9 @@
 import os
 import logging
-import requests
+
 import pandas as pd
 import sys
-import pyarrow.csv as pv
-import pyarrow.parquet as pq
+
 
 
 
