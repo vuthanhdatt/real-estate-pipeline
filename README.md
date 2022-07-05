@@ -42,7 +42,7 @@ A data pipeline to extract Vietnam real estate data daily from [Chợ tốt nh
 ```
 
 ## Extract data
-Chotot don't have public API so I inspect their website and found out some hidden API. Data extract include region, area, category and all the posting. All the code for extract data in [`extract_chotot_data.py`](https://github.com/vuthanhdatt/real-estate-pipeline/blob/main/airflow/helpers/extract_chotot_data.py) file. For example, to get all region.
+Chotot doesn't have public API so I inspect their website and found out some hidden API. Data extract include region, area, category and all the posting. All the code for extract data in [`extract_chotot_data.py`](https://github.com/vuthanhdatt/real-estate-pipeline/blob/main/airflow/helpers/extract_chotot_data.py) file. For example, to get all region.
 ```python
 def get_region(path, save=True):
     id, name, url_name, lat, long = [],[],[],[],[]
@@ -72,7 +72,8 @@ def get_region(path, save=True):
 ```
 ## Load into S3
 
-S3 will be data lake in this data pipeline, it store all raw data I just extract from chotot. To upload data into S3, I use [boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html). The data we extract will be daily upload to S3 bucket. 
+S3 will be data lake in this data pipeline, it store all raw data I just extract from chotot The data we extract will be daily upload to S3 bucket, store in `parquet` file type.
+
 
 ![s3](https://github.com/vuthanhdatt/real-estate-pipeline/blob/main/img/s3.png)
 
@@ -93,7 +94,7 @@ We need to build the image first
 docker-compose build
 docker-compose up airflow-init
 ```
-After building the image, we can use `docker-compose up` to start Airflow. 
+After building the image, we can use `docker-compose up` to start Airflow to run all the tasks for this pipeline. 
 
 ![aiflow](https://github.com/vuthanhdatt/real-estate-pipeline/blob/main/img/airflow.png)
 
